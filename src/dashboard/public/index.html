@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flipkart Scraper — Live Dashboard</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>Flipkart Scraper</h1>
+      <div class="sub" id="job-sub">No job yet</div>
+    </div>
+    <span class="pill" id="status-pill" data-status="idle"><span class="dot"></span><span id="status-text">idle</span></span>
+    <div class="spacer"></div>
+    <span class="sub" id="conn-state">connecting…</span>
+  </header>
+
+  <!-- ------------ controls ------------ -->
+  <section class="panel">
+    <div class="controls">
+      <div class="field">
+        <label for="keyword">Search keyword</label>
+        <input id="keyword" type="text" placeholder="scar tape" style="width: 220px" />
+      </div>
+      <div class="field">
+        <label for="startPage">Start page (exclusive)</label>
+        <input id="startPage" type="number" min="0" value="0" style="width: 100px" />
+      </div>
+      <div class="field">
+        <label for="endPage">End page (inclusive)</label>
+        <input id="endPage" type="number" min="1" value="1" style="width: 100px" />
+      </div>
+      <div class="field">
+        <label for="fresh">Mode</label>
+        <select id="fresh" style="width: 170px">
+          <option value="false">Continue (keep data)</option>
+          <option value="true">Start fresh (wipe data)</option>
+        </select>
+      </div>
+
+      <button class="primary" id="btn-start">Start</button>
+      <button id="btn-pause">Pause</button>
+      <button id="btn-resume">Resume</button>
+      <button class="danger" id="btn-stop">Stop</button>
+      <div class="spacer"></div>
+      <button id="btn-retry">Retry Failed</button>
+      <button id="btn-export-page">Export Current Page</button>
+      <button id="btn-export-all">Export All</button>
+      <button id="btn-logs">Download Logs</button>
+    </div>
+  </section>
+
+  <!-- ------------ stats ------------ -->
+  <section class="stats" id="stats">
+    <div class="stat"><div class="k">Total Products</div><div class="v" id="s-total">0</div></div>
+    <div class="stat"><div class="k">Completed</div><div class="v" id="s-completed">0</div></div>
+    <div class="stat"><div class="k">Remaining</div><div class="v" id="s-remaining">0</div></div>
+    <div class="stat ok"><div class="k">Success</div><div class="v" id="s-success">0</div></div>
+    <div class="stat bad"><div class="k">Failed</div><div class="v" id="s-failed">0</div></div>
+    <div class="stat"><div class="k">Current Page</div><div class="v" id="s-page">—</div></div>
+    <div class="stat"><div class="k">Current Product</div><div class="v" id="s-product">—</div></div>
+    <div class="stat"><div class="k">Running Time</div><div class="v" id="s-elapsed">—</div></div>
+    <div class="stat"><div class="k">Est. Remaining</div><div class="v" id="s-eta">—</div></div>
+    <div class="stat"><div class="k">Products / min</div><div class="v" id="s-rate">0</div></div>
+  </section>
+
+  <div class="progress-wrap">
+    <div class="progress-meta">
+      <span id="p-label">Progress</span>
+      <span id="p-percent">0%</span>
+    </div>
+    <div class="bar"><i id="p-bar"></i></div>
+  </div>
+
+  <!-- ------------ tabs ------------ -->
+  <nav class="tabs">
+    <button class="tab active" data-view="products">Products <span class="count" id="c-products">0</span></button>
+    <button class="tab" data-view="failures">Failed Products <span class="count" id="c-failures">0</span></button>
+    <button class="tab" data-view="logs">Logs</button>
+    <button class="tab" data-view="exports">Excel Files</button>
+  </nav>
+
+  <!-- ------------ products ------------ -->
+  <section class="view active" id="view-products">
+    <details class="filters">
+      <summary>Filters &amp; Sorting</summary>
+      <div class="filter-body">
+        <div class="field">
+          <label for="f-search">Search (FSN / PID / URL)</label>
+          <input id="f-search" type="text" placeholder="type to search…" />
+        </div>
+        <div class="field">
+          <label for="f-fsn">FSN</label>
+          <div class="range">
+            <input id="f-fsn" type="text" placeholder="FSN…" />
+            <select id="f-fsn-mode" style="width: 105px">
+              <option value="contains">Contains</option>
+              <option value="exact">Exact</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Price (min / max)</label>
+          <div class="range"><input id="f-priceMin" type="number" placeholder="min" /><input id="f-priceMax" type="number" placeholder="max" /></div>
+        </div>
+        <div class="field">
+          <label>Rating (min / max)</label>
+          <div class="range"><input id="f-ratingMin" type="number" step="0.1" placeholder="min" /><input id="f-ratingMax" type="number" step="0.1" placeholder="max" /></div>
+        </div>
+        <div class="field">
+          <label>Review count (min / max)</label>
+          <div class="range"><input id="f-reviewCountMin" type="number" placeholder="min" /><input id="f-reviewCountMax" type="number" placeholder="max" /></div>
+        </div>
+        <div class="field">
+          <label>Return rate % (min / max)</label>
+          <div class="range"><input id="f-returnRateMin" type="number" step="0.1" placeholder="min" /><input id="f-returnRateMax" type="number" step="0.1" placeholder="max" /></div>
+        </div>
+        <div class="field">
+          <label for="f-impressionToClickOp">Impression → Click %</label>
+          <div class="range">
+            <select id="f-impressionToClickOp" class="funnel-op" data-funnel-op>
+              <option value="">Any</option>
+              <option value="gt">Above</option>
+              <option value="lt">Below</option>
+              <option value="eq">Same as</option>
+            </select>
+            <input id="f-impressionToClickValue" type="number" step="0.01" placeholder="%" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-clickToCartOp">Click → Cart %</label>
+          <div class="range">
+            <select id="f-clickToCartOp" class="funnel-op" data-funnel-op>
+              <option value="">Any</option>
+              <option value="gt">Above</option>
+              <option value="lt">Below</option>
+              <option value="eq">Same as</option>
+            </select>
+            <input id="f-clickToCartValue" type="number" step="0.01" placeholder="%" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-cartToSaleOp">Cart → Sale %</label>
+          <div class="range">
+            <select id="f-cartToSaleOp" class="funnel-op" data-funnel-op>
+              <option value="">Any</option>
+              <option value="gt">Above</option>
+              <option value="lt">Below</option>
+              <option value="eq">Same as</option>
+            </select>
+            <input id="f-cartToSaleValue" type="number" step="0.01" placeholder="%" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-quality">Quality (multi-select)</label>
+          <select id="f-quality" multiple></select>
+        </div>
+        <div class="field">
+          <label for="f-returnPolicy">Return policy (multi-select)</label>
+          <select id="f-returnPolicy" multiple></select>
+        </div>
+        <div class="field">
+          <label for="f-returnRateColor">Return rate color (multi-select)</label>
+          <select id="f-returnRateColor" multiple></select>
+        </div>
+        <div class="field">
+          <label for="f-isStartSellingEnable">Start selling enabled</label>
+          <select id="f-isStartSellingEnable" multiple>
+            <option value="true">Enabled</option>
+            <option value="false">Disabled</option>
+            <option value="null">No button</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-success">Row status</label>
+          <select id="f-success" multiple>
+            <option value="true">Success</option>
+            <option value="false">Failed</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-page">Page (multi-select)</label>
+          <select id="f-page" multiple></select>
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <div class="range">
+            <button id="btn-apply" class="primary">Apply</button>
+            <button id="btn-clear">Clear</button>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <div class="toolbar">
+      <label class="sub"><input type="checkbox" id="auto-follow" checked /> Auto-show newest</label>
+      <span class="spacer"></span>
+      <span class="sub" id="products-summary">0 rows</span>
+      <select id="page-size" style="width: 110px">
+        <option value="25">25 / page</option>
+        <option value="50" selected>50 / page</option>
+        <option value="100">100 / page</option>
+        <option value="250">250 / page</option>
+      </select>
+    </div>
+
+    <div class="table-scroll">
+      <table id="products-table">
+        <thead>
+          <tr>
+            <th style="width:34px"></th>
+            <th class="sortable" data-sort="page">Page</th>
+            <th class="sortable" data-sort="productIndex">#</th>
+            <th class="sortable" data-sort="success">Status</th>
+            <th style="width:70px">Image</th>
+            <th class="sortable" data-sort="fsn">FSN</th>
+            <th class="sortable" data-sort="price">Price</th>
+            <th class="sortable" data-sort="rating">Rating</th>
+            <th class="sortable" data-sort="reviewCount">Reviews</th>
+            <th class="sortable" data-sort="returnPolicy">Return Policy</th>
+            <th class="sortable" data-sort="quality">Quality</th>
+            <th class="sortable" data-sort="returnRate">Return Rate</th>
+            <th class="sortable" data-sort="isStartSellingEnable">Start Selling</th>
+            <th>Links</th>
+            <th style="width:92px">Details</th>
+          </tr>
+        </thead>
+        <tbody id="products-body"></tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <button id="btn-prev" class="tiny">◀ Prev</button>
+      <span id="pager-label">—</span>
+      <button id="btn-next" class="tiny">Next ▶</button>
+    </div>
+  </section>
+
+  <!-- ------------ failures ------------ -->
+  <section class="view" id="view-failures">
+    <div class="toolbar">
+      <input id="ff-search" type="text" placeholder="Search failures…" style="width: 220px" />
+      <select id="ff-status" style="width: 140px">
+        <option value="all">All statuses</option>
+        <option value="failed">Failed</option>
+        <option value="retrying">Retrying</option>
+        <option value="resolved">Resolved</option>
+      </select>
+      <select id="ff-type" style="width: 200px"><option value="all">All error types</option></select>
+      <span class="spacer"></span>
+      <button id="btn-retry-selected">Retry Selected</button>
+      <button id="btn-retry-all" class="primary">Retry All Failed</button>
+    </div>
+
+    <div class="table-scroll">
+      <table id="failures-table">
+        <thead>
+          <tr>
+            <th style="width:30px"><input type="checkbox" id="ff-all" /></th>
+            <th style="width:34px"></th>
+            <th>Page</th>
+            <th>#</th>
+            <th>FSN</th>
+            <th>Error Type</th>
+            <th>Stage</th>
+            <th>Failed At</th>
+            <th>Retries</th>
+            <th>Status</th>
+            <th style="width:80px">Retry</th>
+          </tr>
+        </thead>
+        <tbody id="failures-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ------------ logs ------------ -->
+  <section class="view" id="view-logs">
+    <div class="toolbar">
+      <select id="log-level" style="width: 140px">
+        <option value="all">All levels</option>
+        <option value="info">Info+</option>
+        <option value="warn">Warnings+</option>
+        <option value="error">Errors only</option>
+      </select>
+      <label class="sub"><input type="checkbox" id="log-follow" checked /> Follow</label>
+      <span class="spacer"></span>
+      <button id="btn-logs-2">Download Logs</button>
+    </div>
+    <div class="log-box" id="log-box"></div>
+  </section>
+
+  <!-- ------------ exports ------------ -->
+  <section class="view" id="view-exports">
+    <div class="toolbar">
+      <button id="btn-refresh-exports">Refresh</button>
+      <span class="spacer"></span>
+      <button id="btn-export-all-2" class="primary">Export All</button>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>File</th><th>Size</th><th>Generated</th><th>Download</th></tr></thead>
+        <tbody id="exports-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="./app.js"></script>
+</body>
+</html>
